@@ -120,6 +120,14 @@
     <!-- NEW: Overlay for Scary Stimuli -->
         <div id="scary-stimuli-overlay"></div>
 
+    <!-- Brain Stats Popup -->
+        <div id="brain-popup" class="popup-overlay">
+            <div id="brain-popup-content">
+                <canvas id="brain-stats-chart"></canvas>
+                <button id="close-brain-popup">Close</button>
+            </div>
+        </div>
+
     <!-- Instructions Overlay -->
         <div id="instructions-overlay">
             <div id="instructions-content">
@@ -135,6 +143,7 @@
         <button id="info-button">?</button>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="three_scene.js"></script>
     <script type="module" src="game_logic.js"></script>
 </body>

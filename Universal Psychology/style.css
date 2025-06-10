@@ -31,7 +31,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 15px;
+    padding: 10px;
 }
 
 /* Info Banner */
@@ -137,9 +137,9 @@ body {
 }
 #threejs-canvas-container {
     flex-grow: 1;
-    aspect-ratio: 16 / 9; 
-    max-height: 220px; 
-    min-height: 150px; 
+    aspect-ratio: 4 / 3;
+    max-height: 160px;
+    min-height: 120px;
     border: 1px solid #ccc;
     background-color: #000;
     position: relative;
@@ -435,4 +435,30 @@ button:hover {
 
 #instructions-content button {
     margin-top: 10px;
+}
+
+/* Brain Popup Overlay */
+#brain-popup.popup-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0,0,0,0.7);
+    justify-content: center;
+    align-items: center;
+    z-index: 1300;
+}
+#brain-popup-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80vw;
+    max-width: 800px;
+}
+#brain-popup-content canvas {
+    width: 100%;
+    height: 300px;
+    margin-bottom: 10px;
 }

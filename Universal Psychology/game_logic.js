@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         factoryCount: 0,
         factoryCost: 10,
         passiveNeuroFuelMultiplier: 1,
+        manualFuelMultiplier: 1,
         neuroFuel: 10,
         neuroFuelCost: 1,
         mindOps: 0,
@@ -106,6 +107,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const infoButtonDOM = document.getElementById('info-button');
     const instructionsOverlayDOM = document.getElementById('instructions-overlay');
     const closeInstructionsBtnDOM = document.getElementById('close-instructions');
+    const brainPopupDOM = document.getElementById('brain-popup');
+    const closeBrainPopupBtnDOM = document.getElementById('close-brain-popup');
+    const brainStatsChartDOM = document.getElementById('brain-stats-chart');
+
+    const brainStatsData = { labels: [], neurons: [], fuel: [] };
+    let brainChart = null;
 
     // --- 4. RAW DATA ---
     const coreUpgrades_raw_data = [
@@ -118,6 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         { id: "prolifFactory", name: "Neuron Proliferation Factory", description: "Builds a facility for passive neuron growth (+0.5/sec).", costCurrency: "psychbucks", cost: 10, neuronBoost: 0.5, effectApplied: false, type: 'proliferation' },
         { id: "dendriticSprouting", name: "Dendritic Sprouting", description: "Increase passive neuron production by 0.1%.", costCurrency: "psychbucks", cost: 25, percentBoost: 0.1, effectApplied: false, dependsOn: "prolifFactory", type: 'proliferation' },
         { id: "myelination", name: "Myelination", description: "Boost production but consumes more fuel and raises anxiety.", costCurrency: "psychbucks", cost: 60, percentBoost: 20, extraFuel: 0.2, anxietyBoost: 5, effectApplied: false, dependsOn: "dendriticSprouting", type: 'proliferation' },
+        { id: "metabolicEfficiency", name: "Metabolic Efficiency", description: "Cuts Neurofuel consumption by 50%.", costCurrency: "psychbucks", cost: 80, effectApplied: false, dependsOn: "myelination", trigger: () => gameState.factoryCount >= 3, type: 'proliferation', action: () => { gameState.manualFuelMultiplier *= 0.5; gameState.passiveNeuroFuelMultiplier *= 0.5; } },
     ];
 
     const projectData = [
@@ -195,7 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const UpgradeSystem = {
         coreUpgrades: [], neuronProliferationUpgrades: [],
         init(coreData, proliferationData) { this.coreUpgrades = coreData.map(u => ({ ...u, effectApplied: u.effectApplied || false })); this.neuronProliferationUpgrades = proliferationData.map(u => ({ ...u, effectApplied: u.effectApplied || false })); UIManager.logMessage("UpgradeSystem Initialized. Core: " + this.coreUpgrades.length + ", Prolif: " + this.neuronProliferationUpgrades.length, "log-info"); },
-        getFilteredUpgrades(type) { const source = type === "core" ? this.coreUpgrades : this.neuronProliferationUpgrades; return source.filter(upg => { if (upg.dependsOn) { const dep = this.coreUpgrades.find(u => u.id === upg.dependsOn) || this.neuronProliferationUpgrades.find(u => u.id === upg.dependsOn); if (!dep || !dep.effectApplied) return false; } return true; }); },
+        getFilteredUpgrades(type) { const source = type === "core" ? this.coreUpgrades : this.neuronProliferationUpgrades; return source.filter(upg => { if (upg.dependsOn) { const dep = this.coreUpgrades.find(u => u.id === upg.dependsOn) || this.neuronProliferationUpgrades.find(u => u.id === upg.dependsOn); if (!dep || !dep.effectApplied) return false; } if(typeof upg.trigger === 'function' && !upg.trigger()) return false; return true; }); },
         renderCoreUpgrades() { UIManager.logMessage("[UpgradeSystem] renderCoreUpgrades called.", "log-info"); const upgs = this.getFilteredUpgrades("core"); if (!upgradesListElementDOM) { UIManager.logMessage("[UpgradeSystem] ERROR: upgradesListElementDOM is null!", "log-warning"); return; } UIManager.renderUpgradeList(upgs, upgradesListElementDOM, "core"); this.updateUpgradeButtons(); },
         renderNeuronProliferationUpgrades() { UIManager.logMessage("[UpgradeSystem] renderNeuronProliferationUpgrades called.", "log-info"); if (neuronProliferationAreaDOM && neuronProliferationAreaDOM.style.display !== 'none') { const upgs = this.getFilteredUpgrades("proliferation"); if (!neuronProliferationUpgradesListDOM) { UIManager.logMessage("[UpgradeSystem] ERROR: neuronProliferationUpgradesListDOM is null!", "log-warning"); return; } UIManager.renderUpgradeList(upgs, neuronProliferationUpgradesListDOM, "proliferation"); this.updateUpgradeButtons(); } else { UIManager.logMessage("[UpgradeSystem] Neuron prolif area hidden, not rendering.", "log-info"); } },
         purchaseUpgrade(upgradeId, upgradeType) {
@@ -255,11 +263,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     function handleManualGeneration() {
         console.log("[DEBUG] handleManualGeneration CALLED"); UIManager.logMessage("handleManualGeneration called.", "log-info");
         if (AnxietySystem.isAttackCurrentlyActive()) { console.log("[DEBUG] Manual generation BLOCKED by anxiety attack."); UIManager.logMessage("Brain recovering... clicking disabled (Anxiety Active).", "log-warning"); return; }
-        const possible = Math.min(gameState.neuronsPerClick, gameState.neuroFuel);
+        const possible = Math.min(gameState.neuronsPerClick, gameState.neuroFuel / gameState.manualFuelMultiplier);
         if(possible <= 0){ UIManager.logMessage('Out of NeuroFuel!', 'log-warning'); return; }
         let neuronsBeforeClick = gameState.neurons; gameState.neurons += possible; gameState.totalNeuronsGenerated += possible;
         gameState.mindOps += possible * OPS_PER_NEURON;
-        gameState.neuroFuel -= possible;
+        gameState.neuroFuel -= possible * gameState.manualFuelMultiplier;
         console.log(`[DEBUG] Neurons: ${neuronsBeforeClick} -> ${gameState.neurons}, PerClick: ${possible}`); UIManager.logMessage(`Neuron click: ${neuronsBeforeClick} -> ${gameState.neurons}`, "log-info");
         UIManager.updateAllDisplays();
     }
@@ -274,6 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             UIManager.logMessage('Not enough Psychbucks for factory.', 'log-warning');
         }
         UIManager.updateAllDisplays();
+        UpgradeSystem.renderNeuronProliferationUpgrades();
     }
 
     function handleBuyNeurofuel(){
@@ -290,6 +299,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function handleDopamineSlider(event) { gameState.dopamineLevel = parseInt(event.target.value); if(dopamineLevelDisplayDOM) dopamineLevelDisplayDOM.textContent = gameState.dopamineLevel; UIManager.callUpdateBrainVisual(); UIManager.updateAllDisplays(); }
     function handleGabaSlider(event) { gameState.gabaLevel = parseInt(event.target.value); if(gabaLevelDisplayDOM) gabaLevelDisplayDOM.textContent = gameState.gabaLevel; UIManager.callUpdateBrainVisual(); UIManager.updateAllDisplays(); }
+
+    function openBrainPopup(){
+        if(!brainPopupDOM) return;
+        if(!brainChart && brainStatsChartDOM && window.Chart){
+            const ctx = brainStatsChartDOM.getContext('2d');
+            brainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: brainStatsData.labels,
+                    datasets: [
+                        { label: 'Neurons', data: brainStatsData.neurons, borderColor: 'blue', fill: false },
+                        { label: 'Fuel', data: brainStatsData.fuel, borderColor: 'orange', fill: false }
+                    ]
+                },
+                options: { animation: false }
+            });
+        }
+        brainPopupDOM.style.display = 'flex';
+    }
+
+    function closeBrainPopup(){
+        if(brainPopupDOM) brainPopupDOM.style.display = 'none';
+    }
 
     function saveGame() {
         const save = {
@@ -340,6 +372,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             gameState.neuroFuel -= possible * gameState.passiveNeuroFuelMultiplier;
         }
         UIManager.updateAllDisplays();
+        brainStatsData.labels.push('');
+        brainStatsData.neurons.push(gameState.neurons);
+        brainStatsData.fuel.push(gameState.neuroFuel);
+        if(brainStatsData.labels.length > 50){
+            brainStatsData.labels.shift();
+            brainStatsData.neurons.shift();
+            brainStatsData.fuel.shift();
+        }
+        if(brainChart) brainChart.update();
     }
 
     // =======================================================================
@@ -353,6 +394,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gabaSliderDOM) gabaSliderDOM.addEventListener('input', handleGabaSlider); else console.warn("GABA slider not found.");
         if (buyFactoryBtnDOM) buyFactoryBtnDOM.addEventListener('click', handleBuyProliferationFactory);
         if (buyNeurofuelBtnDOM) buyNeurofuelBtnDOM.addEventListener('click', handleBuyNeurofuel);
+        const threeContainerDOM = document.getElementById('threejs-canvas-container');
+        if (threeContainerDOM) threeContainerDOM.addEventListener('click', openBrainPopup);
+        if (closeBrainPopupBtnDOM) closeBrainPopupBtnDOM.addEventListener('click', closeBrainPopup);
         if (infoButtonDOM) infoButtonDOM.addEventListener('click', () => {
             if (instructionsOverlayDOM) instructionsOverlayDOM.style.display = 'flex';
         });
