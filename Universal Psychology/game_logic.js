@@ -288,6 +288,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             gameState.passiveNeuronsPerSecond += FACTORY_PRODUCTION_RATE;
             gameState.factoryCost *= 1.15;
             UIManager.logMessage(`Proliferation Factory purchased! Total: ${gameState.factoryCount}`, 'log-upgrade');
+            // After buying a factory, new upgrades may unlock
+            UpgradeSystem.renderNeuronProliferationUpgrades();
         } else {
             UIManager.logMessage('Not enough Psychbucks for factory.', 'log-warning');
         }
